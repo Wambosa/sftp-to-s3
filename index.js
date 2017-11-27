@@ -1,74 +1,67 @@
 const Client = require('ssh2-sftp-client');
-const streamToString = require('./lib/streamToString');
-const retrieveFileStreams = require('./lib/retrieveFileStreams');
+const configTool = require('./lib/configTool');
 const uploadToS3 = require('./lib/uploadToS3');
-const path = require('path');
+const retrieveFileStreams = require('./lib/retrieveFileStreams');
 
-const SftpToS3 = {
+
+
+module.exports = {
+
   batch: function(config) {
-    const sftp = new Client()
+    const sftp = new Client();
+    config = configTool.fix(config);
+    const logger = config.logger;
+
+    let check = configTool.check(config);
+
+    if (!check.ok) {
+      logger.error(check.errors);
+      return process.exit(1);
+    }
 
     return new Promise( (resolve, reject) => {
-      // handle path errors
-      if (config.aws === undefined) {
-        console.error("aws key is require for config");
-        reject("malformed config, aws key is require for config");
-        return;
-      }
 
-      if (config.aws.bucket === undefined) {
-        console.error("aws bucket is require in aws key");
-        reject("malformed config, aws bucket is require in aws key");
-        return;
-      }
-
-      if (path.isAbsolute(config.fileDownloadDir) === false) {
-        console.error("fileDownloadDir must be absolute");
-        reject("malformed config, fileDownloadDir must be absolute");
-        return;
-      }
-    
-      if (path.isAbsolute(config.completedDir) === false) {
-        console.error("completedDir must be absolute");
-        reject("malformed config, completedDir must be absolute");
-        return;
-      }
+      logger.info(`connecting to sftp ${config.sftp.username}@${config.sftp.host}:${config.sftp.port}`);
 
       return sftp.connect(config.sftp)
+
         .then(() => {
+          logger.info(`sftp.list files found in ${config.fileDownloadDir}`);
           return sftp.list(config.fileDownloadDir);
         })
+
         .then((fileList) => {
-          return retrieveFileStreams(sftp, config, fileList, "sftp")
+          const earliestTimestamp = config.earliestTime.getTime();
+          const withinTimeRange = (fileObj) => fileObj.modifyTime > earliestTimestamp;
+          const relevantFiles = fileList.filter(withinTimeRange);
+          const totalSize = relevantFiles.map(x=>x.size).reduce( (a,b) => a+b);
+          logger.info(`retrieve readStreams for ${relevantFiles.length} files of size ${totalSize} modified after epoch ${earliestTimestamp}`);
+          logger.trace(fileList);
+          return retrieveFileStreams(
+            sftp,
+            config,
+            relevantFiles,
+            "sftp"
+          );
         })
-        .then((fileStreams) => {
-          return streamToString(fileStreams)
+
+        .then((streams) => {
+          logger.info(`prepare upload of ${streams.length} readStreams`);
+          logger.trace(streams);
+          return uploadToS3.putBatch(config, streams);
         })
-        .then((dataArray) => {
-          return uploadToS3.putBatch(config.aws, dataArray)
+
+        .then((resolutions) => {
+          logger.trace(resolutions);
+          sftp.end();
+          return resolve(`${resolutions.length} completed uploads to ${config.aws.bucket}`);
         })
-        .then((files) => {
-          sftp.mkdir(config.completedDir, true)
-          return sftp.list(config.fileDownloadDir);
-        })
-        .then((files) => {
-          files.map((file) => {
-            sftp.rename(file.name, config.completedDir + file.name);
-          })
-          console.log("upload finished")
-          sftp.end()
-          return resolve("ftp files uploaded")
-        })
+
         .catch( function(err) {
-          console.error("Error", err);
-          sftp.end()
-          return reject(err)
-        })
-    })
+          logger.error(err);
+          sftp.end();
+          return reject(err);
+        });
+    });
   }
-}
-
-module.exports = SftpToS3
-
-
-  
+};

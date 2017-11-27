@@ -1,11 +1,8 @@
 {
   "name": "sftp-to-s3",
-  "version": "1.0.10",
+  "version": "1.0.10b",
   "description": "library to upload files from sftp server to aws s3",
   "main": "index.js",
-  "scripts": {
-    "test": "mocha test"
-  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bypasslane/sftp-to-s3.git"
@@ -31,7 +28,7 @@
   "dependencies": {
     "aws-sdk": "^2.28.0",
     "bluebird": "^3.5.0",
-    "ssh2-sftp-client": "^1.0.5",
-    "stream-to-array": "^2.3.0"
+    "s3-upload-stream": "^1.0.7",
+    "ssh2-sftp-client": "^1.0.5"
   }
 }
