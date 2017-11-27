@@ -16,12 +16,12 @@ const config = {
     bucket: "bucket_name", accessKeyId: 'AKID', secretAccessKey: 'SECRET', region: 'us-west-2'
   },
   fileDownloadDir: "/",
-  completedDir: '/completed-uploads/'
+  earliestTimestamp: new Date()
 };
 
 SftpToS3.batch(config)
-  .then((success) => {
-    console.log(success)
+  .then((successArray) => {
+    console.log(successArray)
   })
   .catch((err) => {
     console.error(err)
@@ -30,9 +30,11 @@ SftpToS3.batch(config)
 
 #### Gotchas
 
-make sure your `completedDir` and `fileDownloadDir` are absolute paths.  Do not use a path such as `./completedDir`, becasue then a file will not be found...derp
+make sure `fileDownloadDir` is an absolute paths.  
+Do not use a path such as `./myFolder`, becasue then a file will not be found...derp  
+Additionally make sure the path ends with an `/` symbol, or else the error you get may be a permission denied or file does not exist.
 
-if you have your aws set up properly with the `.aws` folder in home directory, you will not need to provide `secretAccessKey` or `region`, only `bucket` will need to be in the config.
+if you have your aws set up properly with the `.aws` folder in home directory, you **will not** need to provide `secretAccessKey` or `region`, only `bucket` will need to be in the config.
 
 
 [for complete aws s3 config options go here](http://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/Config.html#constructor-property "AWS S3 Config Doc")
