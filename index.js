@@ -32,7 +32,10 @@ module.exports = {
       const relevantFiles = fileList.filter(withinTimeRange);
 
       if(!relevantFiles.length)
-        return Promise.reject(`no relevant files to process in sftp folder ${config.fileDownloadDir}`);
+        return Promise.reject({
+          isEmptyFolder: true, 
+          message: `no relevant files to process in sftp folder ${config.fileDownloadDir}`
+        });
 
       const totalSize = relevantFiles.map(x=>x.size).reduce( (a,b) => a+b);
       logger.info(`retrieving ${relevantFiles.length} readStreams with combined size ${totalSize} that were modified after epoch ${earliestTimestamp}`);
